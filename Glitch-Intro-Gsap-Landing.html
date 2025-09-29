@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Intro • Michele Grimaldi</title>
+  <meta name="description" content="Glitch intro with logo + enter site button" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#000000;   /* pure black background */
+      --fg:#f5f5f5;
+      --accent:#00ffd0;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; background:var(--bg); color:var(--fg);
+      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;
+      overflow:hidden;
+    }
+    .stage{
+      position:relative; display:grid; place-items:center; min-height:100vh; isolation:isolate;
+    }
+    .noise, .scanlines{position:absolute; inset:0; pointer-events:none; opacity:.35}
+    .noise{background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160">\
+      <filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" stitchTiles="stitch"/></filter>\
+      <rect width="100%" height="100%" filter="url(%23n)" opacity="0.5"/></svg>');
+      mix-blend-mode:soft-light; background-size:240px 240px;
+    }
+    .scanlines{background:linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px); background-size:100% 3px; mix-blend-mode:overlay}
+
+    .logo-wrap{
+      position:relative;
+      width:clamp(260px, 80vmin, 800px);
+      aspect-ratio:1/1;
+      background:#000; /* black background behind logo */
+    }
+    .logo-layer{position:absolute; inset:0; filter:contrast(1.05) brightness(1.08)}
+    .logo-layer img{width:100%; height:100%; display:block; object-fit:contain}
+
+    .layer-base{z-index:2}
+    .layer-red{z-index:1; mix-blend-mode:screen; filter:drop-shadow(0 0 0 red)}
+    .layer-cyan{z-index:3; mix-blend-mode:screen; filter:drop-shadow(0 0 0 cyan)}
+
+    [data-slices]::before,[data-slices]::after{
+      content:""; position:absolute; inset:0; background:inherit; mask:var(--mask, none);
+    }
+
+    .cta{
+      position:absolute; 
+      bottom:5%; 
+      left:50%; 
+      transform:translateX(-50%); 
+      opacity:0; 
+      pointer-events:none;
+      display:inline-flex; 
+      align-items:center; 
+      gap:.6rem; 
+      text-decoration:none; 
+      color:var(--bg);
+      background:var(--accent); 
+      border-radius:999px; 
+      padding:.9rem 1.5rem; 
+      font-weight:700;
+      box-shadow:0 10px 30px rgba(0,255,208,.18), 0 2px 8px rgba(0,0,0,.5);
+      transition:transform .18s ease, box-shadow .18s ease;
+      z-index:50;
+    }
+    .cta:focus-visible{outline:2px solid white; outline-offset:3px}
+    .cta:hover{transform:translateY(-2px); box-shadow:0 14px 40px rgba(0,255,208,.25), 0 3px 12px rgba(0,0,0,.55)}
+
+    /* Overlay */
+    .overlay{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,0.9);
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      color:#fff;
+      font-size:1.4rem;
+      font-weight:700;
+      letter-spacing:.1em;
+      z-index:999;
+      cursor:pointer;
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      .noise,.scanlines{display:none}
+      .cta{opacity:1; pointer-events:auto}
+    }
+  </style>
+</head>
+<body>
+  <!-- Overlay asking for interaction -->
+  <div class="overlay" id="overlay">CLICK ANYWHERE TO START</div>
+
+  <div class="stage" aria-label="Animated site intro">
+
+    <div class="logo-wrap" aria-hidden="true">
+      <div class="logo-layer layer-red" data-slices>
+        <img src="logo.png" alt="Logo" />
+      </div>
+      <div class="logo-layer layer-base" data-slices>
+        <img src="logo.png" alt="Logo" />
+      </div>
+      <div class="logo-layer layer-cyan" data-slices>
+        <img src="logo.png" alt="Logo" />
+      </div>
+    </div>
+
+    <a class="cta" id="enterBtn" href="https://mike014.github.io/michele-portfolio/index.html" aria-label="Enter my site">
+      <span>Enter my site</span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M13 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M20 12H4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </a>
+
+    <div class="noise"></div>
+    <div class="scanlines"></div>
+  </div>
+
+  <audio id="sting" src="why_so_serious.wav" preload="auto"></audio>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+  <script>
+    const DURATION = 5;
+    const GLITCH_BURSTS = 18;
+
+    const layers = gsap.utils.toArray('.logo-layer');
+    const images = gsap.utils.toArray('.logo-layer img');
+    const noise = document.querySelector('.noise');
+    const cta = document.getElementById('enterBtn');
+    const sting = document.getElementById('sting');
+    const overlay = document.getElementById('overlay');
+
+    function startAnimation(){
+      // Fade out overlay
+      gsap.to(overlay, { opacity:0, duration:0.6, onComplete:()=>overlay.remove() });
+
+      sting.currentTime = 0;
+      sting.volume = 0;
+      sting.play().then(()=>{
+        const tl = gsap.timeline({ defaults:{ ease: 'power3.out' } });
+
+        tl.to(layers, { opacity: 1, duration: .5, stagger: .06 }, 0.05)
+          .to(layers, { scale: 1, yPercent: 0, duration: .9 }, 0.15)
+          .fromTo(noise, { opacity: .0 }, { opacity: .35, duration: .6 }, 0.2)
+          .add(glitchBursts(GLITCH_BURSTS), 0.25)
+          .addLabel('settle', DURATION - .8)
+          .to(layers, { x: 0, y: 0, filter: 'none', duration: .3, ease: 'power2.out' }, 'settle')
+          .add(swapLogoAndSting, DURATION)
+          .to(cta, { opacity: 1, duration: .6, y: 0, onStart(){ cta.style.pointerEvents = 'auto'; } }, DURATION - .2);
+      });
+    }
+
+    function glitchBursts(n){
+      const g = gsap.timeline({ repeat: 0 });
+      const step = DURATION / (n+1);
+      for(let i=1;i<=n;i++){
+        const t = i*step * (0.7 + Math.random()*0.6);
+        g.add(glitchOnce(), t);
+      }
+      return g;
+    }
+
+    function glitchOnce(){
+      const burst = gsap.timeline({ defaults:{ duration: 0.08, ease: 'power1.inOut' } });
+      const rx = gsap.utils.random(-10, 10, 1, true);
+      const ry = gsap.utils.random(-6, 6, 1, true);
+      const cx = gsap.utils.random(-10, 10, 1, true);
+      const cy = gsap.utils.random(-6, 6, 1, true);
+
+      const makeMask = () => {
+        const slices = Math.floor(gsap.utils.random(2,4,true));
+        const parts = [];
+        for(let i=0;i<slices;i++){
+          const y = gsap.utils.random(0, 100);
+          const h = gsap.utils.random(4, 20);
+          parts.push(`linear-gradient(#000 0 0) 0% ${y}% / 100% ${h}% no-repeat`);
+        }
+        return parts.join(',');
+      };
+
+      const targets = document.querySelectorAll('[data-slices]');
+
+      burst
+        .to('.layer-red', { x: rx, y: ry, filter: 'drop-shadow(0 0 0 red) saturate(1.6)' }, 0)
+        .to('.layer-cyan', { x: cx, y: cy, filter: 'drop-shadow(0 0 0 cyan) saturate(1.6)' }, 0)
+        .to(targets, { '--mask': makeMask(), duration: 0.001 }, 0)
+        .to(layers, { skewX: gsap.utils.random(-3,3), skewY: gsap.utils.random(-2,2) }, 0)
+        .to(layers, { x: 0, y: 0, skewX: 0, skewY: 0, filter: 'contrast(1.05) brightness(1.08)', duration: 0.09 })
+        .to(targets, { '--mask': 'none', duration: 0.001 }, '>-0.02');
+
+      return burst;
+    }
+
+    function swapLogoAndSting(){
+      images.forEach(img => { img.src = 'logo2.png'; });
+      glitchOnce();
+      sting.currentTime = 0;
+      sting.volume = 1;
+      sting.play();
+    }
+
+    overlay.addEventListener("click", startAnimation, { once:true });
+  </script>
+</body>
+</html>
